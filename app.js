@@ -50,6 +50,7 @@ const comment = require("./controller/comment");
 const category = require("./controller/category");
 const dashboard = require("./controller/dasboard");
 const journal = require("./controller/journal");
+const content = require("./controller/content");
 
 app.use("/users", user);
 app.use("/products", product);
@@ -60,6 +61,7 @@ app.use("/dashboard", dashboard);
 app.use("/account", account);
 app.use("/journal", journal);
 app.use("/balance", balance);
+app.use("/content", content);
 
 
 // app.use("", welcome);
