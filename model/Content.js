@@ -5,7 +5,7 @@ const contentSchema = new Schema(
     {
         user_id: {
             type: Schema.Types.ObjectId,
-            ref: 'User',
+            ref: 'UserAccounting', // Ubah dari 'User' ke 'UserAccounting'
             required: true,
         },
         title: {
@@ -18,7 +18,7 @@ const contentSchema = new Schema(
         },
         media: [
             {
-                type: String, // URL gambar/video
+                type: String,
             }
         ],
         hashtags: [
@@ -28,14 +28,14 @@ const contentSchema = new Schema(
         ],
         mentions: [
             {
-                type: String, // Username akun yang dimention
+                type: String,
             }
         ],
         scheduled_at: {
-            type: Date, // Waktu untuk posting otomatis
+            type: Date,
         },
         posted_at: {
-            type: Date, // Waktu posting berhasil
+            type: Date,
         },
         status: {
             type: String,
@@ -49,16 +49,11 @@ const contentSchema = new Schema(
                     enum: ['facebook', 'twitter', 'instagram', 'tiktok', 'linkedin'],
                     required: true,
                 },
-                // account_id: {
-                //     // type: Schema.Types.ObjectId,
-                //     // ref: 'SocialAccount', // Referensi ke akun media sosial user yang sudah dihubungkan
-                //     required: true,
-                // },
                 post_url: {
-                    type: String, // URL postingan jika berhasil
+                    type: String,
                 },
                 post_id: {
-                    type: String, // ID postingan dari platform media sosial
+                    type: String,
                 },
                 status: {
                     type: String,
@@ -66,12 +61,21 @@ const contentSchema = new Schema(
                     default: 'pending',
                 },
                 error_message: {
-                    type: String, // Jika gagal posting, simpan pesan error dari API
+                    type: String,
                 },
             }
         ],
     },
     { timestamps: true },
 );
+
+contentSchema.set('toJSON', {
+    virtuals: true,
+    versionKey: false,
+    transform: (doc, ret) => {
+        ret.id = ret._id;
+        delete ret._id;
+    },
+});
 
 module.exports = model('Content', contentSchema);

@@ -61,12 +61,14 @@ router.post(
     })
 );
 
-// Get All Contents
 router.get(
     '/',
     isAuthenticated,
     catchAsyncErrors(async (req, res, next) => {
-        const contents = await Content.find({ user_id: req.user._id }).sort({ createdAt: -1 });
+        const contents = await Content.find({ user_id: req.user._id })
+            .populate('user_id', 'username email') // Mengambil username & email dari UserAccounting
+            .sort({ createdAt: -1 });
+
         res.status(200).json({
             code: 200,
             status: 'success',
@@ -75,12 +77,14 @@ router.get(
     })
 );
 
-// Get Content by ID
+// Get Content by ID (Menampilkan Nama User)
 router.get(
     '/:id',
     isAuthenticated,
     catchAsyncErrors(async (req, res, next) => {
-        const content = await Content.findOne({ _id: req.params.id, user_id: req.user._id });
+        const content = await Content.findOne({ _id: req.params.id, user_id: req.user._id })
+            .populate('user_id', 'name email');
+
         if (!content) {
             return res.status(404).json({
                 code: 404,
@@ -88,6 +92,7 @@ router.get(
                 message: 'Content not found',
             });
         }
+
         res.status(200).json({
             code: 200,
             status: 'success',
@@ -95,6 +100,7 @@ router.get(
         });
     })
 );
+
 
 // Update Content
 router.put(
