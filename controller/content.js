@@ -83,7 +83,7 @@ router.get(
     isAuthenticated,
     catchAsyncErrors(async (req, res, next) => {
         const content = await Content.findOne({ _id: req.params.id, user_id: req.user._id })
-            .populate('user_id', 'name email');
+            .populate('user_id', 'username email');
 
         if (!content) {
             return res.status(404).json({
