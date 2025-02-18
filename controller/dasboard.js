@@ -1,68 +1,46 @@
 const express = require("express");
 const router = express.Router();
-const Transaction = require('../model/transaction'); // Import the Transaction model correctly
+const UserAccounting = require("../model/user");
+const Content = require("../model/Content");
 const ErrorHandler = require("../utils/ErrorHandler");
-const catchAsyncErrors = require('../middleware/catchAsyncErrors');
+const catchAsyncErrors = require("../middleware/catchAsyncErrors");
 
 // Get summary dashboard
 router.get(
-    "/summary",
-    catchAsyncErrors(async (req, res, next) => {
-      try {
-        const transactionCount = await Transaction.aggregate([
-          {
-            $group: {
-              _id: '$status',
-              count: { $sum: 1 }
-            }
-          },
-          {
-            $project: {
-              status: "$_id",
-              count: 1,
-              _id: 0
-            }
-          }
-        ]);
+  "/summary",
+  catchAsyncErrors(async (req, res, next) => {
+    try {
+      const totalUsers = await UserAccounting.countDocuments();
+      const totalContent = await Content.countDocuments();
 
-        const summary = {
-          Paid: 0,
-          Processed: 0,
-          Shipped: 0,
-          Success: 0,
-          Unpaid: 0
-        };
+      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      const totalContentThisMonth = await Content.countDocuments({ createdAt: { $gte: startOfMonth } });
 
-        transactionCount.forEach(item => {
-          if (item.status === "Belum Dibayar") summary.Unpaid = item.count;
-          if (item.status === "Dibayar") summary.Paid = item.count;
-          if (item.status === "Diproses") summary.Processed = item.count;
-          if (item.status === "Dikirim") summary.Shipped = item.count;
-          if (item.status === "Selesai") summary.Success = item.count;
-        });
-
-        res.status(200).json({
-          code: 200,
-          success: true,
-          data: summary,
-        });
-      } catch (error) {
-        return next(new ErrorHandler(error.message, 500));
-      }
-    })
+      res.status(200).json({
+        code: 200,
+        success: true,
+        data: {
+          totalUsers,
+          totalContentThisMonth,
+          totalContent,
+        },
+      });
+    } catch (error) {
+      return next(new ErrorHandler(error.message, 500));
+    }
+  })
 );
-
-// Total transactions per month with status "Selesai"
+// Get total users and content per month
 router.get(
-  '/total-transactions-per-month',
+  "/content-per-month",
   catchAsyncErrors(async (req, res, next) => {
     try {
       const currentYear = new Date().getFullYear();
 
-      const transactions = await Transaction.aggregate([
+      // Hitung total content per bulan
+      const contentStats = await Content.aggregate([
         {
           $match: {
-            status: 'Selesai',
             createdAt: {
               $gte: new Date(currentYear, 0, 1),
               $lt: new Date(currentYear + 1, 0, 1),
@@ -71,45 +49,57 @@ router.get(
         },
         {
           $group: {
-            _id: {
-              year: { $year: '$createdAt' },
-              month: { $month: '$createdAt' },
-            },
-            totalTransactions: { $sum: 1 },
-            totalAmount: { $sum: '$grandtotal' },
-          },
-        },
-        {
-          $sort: {
-            '_id.year': 1,
-            '_id.month': 1,
+            _id: { month: { $month: "$createdAt" } },
+            totalContent: { $sum: 1 },
           },
         },
       ]);
 
-      // Create an array to hold the results for all 12 months
-      const monthlyTransactions = Array.from({ length: 12 }, (_, index) => ({
+      // Hitung total user per bulan
+      const userStats = await UserAccounting.aggregate([
+        {
+          $match: {
+            createdAt: {
+              $gte: new Date(currentYear, 0, 1),
+              $lt: new Date(currentYear + 1, 0, 1),
+            },
+          },
+        },
+        {
+          $group: {
+            _id: { month: { $month: "$createdAt" } },
+            totalUsers: { $sum: 1 },
+          },
+        },
+      ]);
+
+      // Initialize array for 12 months
+      const monthlyStats = Array.from({ length: 12 }, (_, index) => ({
         year: currentYear,
         month: index + 1,
-        totalTransactions: 0,
-        totalAmount: 0,
+        totalContent: 0,
+        totalUsers: 0,
       }));
 
-      // Populate the array with actual transaction data
-      transactions.forEach(transaction => {
-        const monthIndex = transaction._id.month - 1;
-        monthlyTransactions[monthIndex] = {
-          year: transaction._id.year,
-          month: transaction._id.month,
-          totalTransactions: transaction.totalTransactions,
-          totalAmount: transaction.totalAmount,
-        };
+      // Populate the array with content data
+      contentStats.forEach((stat) => {
+        monthlyStats[stat._id.month - 1].totalContent = stat.totalContent;
       });
+
+      // Populate the array with user data
+      userStats.forEach((stat) => {
+        monthlyStats[stat._id.month - 1].totalUsers = stat.totalUsers;
+      });
+
+      const totalUsers = await UserAccounting.countDocuments();
 
       res.status(200).json({
         code: 200,
-        status: 'success',
-        data: monthlyTransactions,
+        success: true,
+        data: {
+          totalUsers,
+          monthlyStats,
+        },
       });
     } catch (error) {
       return next(new ErrorHandler(error.message, 500));
