@@ -5,6 +5,7 @@ const { isAuthenticated } = require('../middleware/auth');
 const catchAsyncErrors = require('../middleware/catchAsyncErrors');
 const Validator = require('fastest-validator');
 const v = new Validator();
+const excelJS = require('exceljs');
 
 // Schema validasi untuk Content
 const contentSchema = {
@@ -61,12 +62,23 @@ router.post(
     })
 );
 
+// Get content with date filter
 router.get(
     '/',
     isAuthenticated,
     catchAsyncErrors(async (req, res, next) => {
-        const contents = await Content.find({ user_id: req.user._id })
-            .populate('user_id', 'username email') // Mengambil username & email dari UserAccounting
+        let { start_date, end_date } = req.query;
+        let filter = { user_id: req.user._id };
+
+        if (start_date && end_date) {
+            filter.createdAt = {
+                $gte: new Date(start_date),
+                $lte: new Date(end_date),
+            };
+        }
+
+        const contents = await Content.find(filter)
+            .populate('user_id', 'username email')
             .sort({ createdAt: -1 });
 
         res.status(200).json({
@@ -76,6 +88,84 @@ router.get(
         });
     })
 );
+
+// Export content to Excel
+router.get(
+    '/export-excel',
+    isAuthenticated,
+    catchAsyncErrors(async (req, res, next) => {
+        let { start_date, end_date } = req.query;
+        let filter = { user_id: req.user._id };
+
+        if (start_date && end_date) {
+            filter.createdAt = {
+                $gte: new Date(start_date),
+                $lte: new Date(end_date),
+            };
+        }
+
+        const contents = await Content.find(filter)
+            .populate('user_id', 'username email')
+            .sort({ createdAt: -1 });
+
+        const workbook = new excelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Content Data');
+
+        // Header
+        worksheet.columns = [
+            { header: 'No', key: 'no', width: 5 },
+            { header: 'Username', key: 'username', width: 20 },
+            { header: 'Email', key: 'email', width: 30 },
+            { header: 'Title', key: 'title', width: 25 },
+            { header: 'Content', key: 'content', width: 50 },
+            { header: 'Media', key: 'media', width: 50 },
+            { header: 'Hashtags', key: 'hashtags', width: 30 },
+            { header: 'Mentions', key: 'mentions', width: 30 },
+            { header: 'Scheduled At', key: 'scheduled_at', width: 20 },
+            { header: 'Status', key: 'status', width: 15 },
+            { header: 'Platform', key: 'platform', width: 15 },
+            { header: 'Post URL', key: 'post_url', width: 40 },
+            { header: 'Social Status', key: 'social_status', width: 15 },
+            { header: 'Created At', key: 'createdAt', width: 20 },
+        ];
+
+        // Data
+        let rowIndex = 1;
+        contents.forEach((content) => {
+            content.social_accounts.forEach((account) => {
+                worksheet.addRow({
+                    no: rowIndex++,
+                    username: content.user_id.username,
+                    email: content.user_id.email,
+                    title: content.title,
+                    content: content.content,
+                    media: content.media.join(', '),
+                    hashtags: content.hashtags.join(', '),
+                    mentions: content.mentions.join(', '),
+                    scheduled_at: content.scheduled_at,
+                    status: content.status,
+                    platform: account.platform,
+                    post_url: account.post_url || '-',
+                    social_status: account.status,
+                    createdAt: content.createdAt.toISOString(),
+                });
+            });
+        });
+
+        res.setHeader(
+            'Content-Type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+        res.setHeader(
+            'Content-Disposition',
+            'attachment; filename=ContentData.xlsx'
+        );
+
+        await workbook.xlsx.write(res);
+        res.end();
+    })
+);
+
 
 // Get Content by ID (Menampilkan Nama User)
 router.get(
