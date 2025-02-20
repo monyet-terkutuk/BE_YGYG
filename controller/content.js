@@ -6,6 +6,9 @@ const catchAsyncErrors = require('../middleware/catchAsyncErrors');
 const Validator = require('fastest-validator');
 const v = new Validator();
 const excelJS = require('exceljs');
+const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
 // Schema validasi untuk Content
 const contentSchema = {
@@ -118,7 +121,6 @@ router.get(
 
 
 
-// Export content to Excel
 router.get(
     '/export-excel',
     isAuthenticated,
@@ -147,7 +149,7 @@ router.get(
             { header: 'Email', key: 'email', width: 30 },
             { header: 'Title', key: 'title', width: 25 },
             { header: 'Content', key: 'content', width: 50 },
-            { header: 'Media', key: 'media', width: 50 },
+            { header: 'Media', key: 'media', width: 20 },
             { header: 'Hashtags', key: 'hashtags', width: 30 },
             { header: 'Mentions', key: 'mentions', width: 30 },
             { header: 'Scheduled At', key: 'scheduled_at', width: 20 },
@@ -158,17 +160,21 @@ router.get(
             { header: 'Created At', key: 'createdAt', width: 20 },
         ];
 
-        // Data
-        let rowIndex = 1;
-        contents.forEach((content) => {
-            content.social_accounts.forEach((account) => {
-                worksheet.addRow({
-                    no: rowIndex++,
+        // Pastikan direktori temp ada
+        const tempDir = path.join(__dirname, 'temp_images');
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+        }
+
+        let rowIndex = 2; // Mulai dari baris kedua setelah header
+        for (const content of contents) {
+            for (const account of content.social_accounts) {
+                const row = worksheet.addRow({
+                    no: rowIndex - 1,
                     username: content.user_id.username,
                     email: content.user_id.email,
                     title: content.title,
                     content: content.content,
-                    media: content.media.join(', '),
                     hashtags: content.hashtags.join(', '),
                     mentions: content.mentions.join(', '),
                     scheduled_at: content.scheduled_at,
@@ -178,8 +184,46 @@ router.get(
                     social_status: account.status,
                     createdAt: content.createdAt.toISOString(),
                 });
-            });
-        });
+
+                if (content.media && content.media.length > 0) {
+                    try {
+                        const imageUrl = content.media[0]; // Ambil gambar pertama
+                        const imagePath = path.join(tempDir, `image_${rowIndex}.jpg`);
+
+                        console.log("Downloading image to:", imagePath); // Debugging path file
+
+                        const response = await axios({
+                            url: imageUrl,
+                            responseType: 'arraybuffer',
+                        });
+
+                        fs.writeFileSync(imagePath, response.data);
+
+                        const imageId = workbook.addImage({
+                            filename: imagePath,
+                            extension: 'jpeg',
+                        });
+
+                        worksheet.addImage(imageId, {
+                            tl: { col: 5, row: rowIndex - 1 },
+                            ext: { width: 50, height: 50 },
+                        });
+
+                        // Hapus gambar setelah file selesai ditulis ke response
+                        setTimeout(() => {
+                            if (fs.existsSync(imagePath)) {
+                                fs.unlinkSync(imagePath);
+                                console.log("Deleted temp image:", imagePath);
+                            }
+                        }, 5000); // Beri waktu 5 detik sebelum menghapus
+                    } catch (error) {
+                        console.error(`Failed to download image: ${error.message}`);
+                    }
+                }
+
+                rowIndex++;
+            }
+        }
 
         res.setHeader(
             'Content-Type',
@@ -194,6 +238,7 @@ router.get(
         res.end();
     })
 );
+
 
 
 // Get Content by ID (Menampilkan Nama User)
