@@ -176,6 +176,7 @@ router.get(
                     title: content.title,
                     content: content.content,
                     hashtags: content.hashtags.join(', '),
+                    media: content.media.join(', '),
                     mentions: content.mentions.join(', '),
                     scheduled_at: content.scheduled_at,
                     status: content.status,
@@ -185,41 +186,41 @@ router.get(
                     createdAt: content.createdAt.toISOString(),
                 });
 
-                if (content.media && content.media.length > 0) {
-                    try {
-                        const imageUrl = content.media[0]; // Ambil gambar pertama
-                        const imagePath = path.join(tempDir, `image_${rowIndex}.jpg`);
+                // if (content.media && content.media.length > 0) {
+                //     try {
+                //         const imageUrl = content.media[0]; // Ambil gambar pertama
+                //         const imagePath = path.join(tempDir, `image_${rowIndex}.jpg`);
 
-                        console.log("Downloading image to:", imagePath); // Debugging path file
+                //         console.log("Downloading image to:", imagePath); // Debugging path file
 
-                        const response = await axios({
-                            url: imageUrl,
-                            responseType: 'arraybuffer',
-                        });
+                //         const response = await axios({
+                //             url: imageUrl,
+                //             responseType: 'arraybuffer',
+                //         });
 
-                        fs.writeFileSync(imagePath, response.data);
+                //         fs.writeFileSync(imagePath, response.data);
 
-                        const imageId = workbook.addImage({
-                            filename: imagePath,
-                            extension: 'jpeg',
-                        });
+                //         const imageId = workbook.addImage({
+                //             filename: imagePath,
+                //             extension: 'jpeg',
+                //         });
 
-                        worksheet.addImage(imageId, {
-                            tl: { col: 5, row: rowIndex - 1 },
-                            ext: { width: 50, height: 50 },
-                        });
+                //         worksheet.addImage(imageId, {
+                //             tl: { col: 5, row: rowIndex - 1 },
+                //             ext: { width: 50, height: 50 },
+                //         });
 
-                        // Hapus gambar setelah file selesai ditulis ke response
-                        setTimeout(() => {
-                            if (fs.existsSync(imagePath)) {
-                                fs.unlinkSync(imagePath);
-                                console.log("Deleted temp image:", imagePath);
-                            }
-                        }, 5000); // Beri waktu 5 detik sebelum menghapus
-                    } catch (error) {
-                        console.error(`Failed to download image: ${error.message}`);
-                    }
-                }
+                //         // Hapus gambar setelah file selesai ditulis ke response
+                //         setTimeout(() => {
+                //             if (fs.existsSync(imagePath)) {
+                //                 fs.unlinkSync(imagePath);
+                //                 console.log("Deleted temp image:", imagePath);
+                //             }
+                //         }, 5000); // Beri waktu 5 detik sebelum menghapus
+                //     } catch (error) {
+                //         console.error(`Failed to download image: ${error.message}`);
+                //     }
+                // }
 
                 rowIndex++;
             }
