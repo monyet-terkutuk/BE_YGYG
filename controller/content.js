@@ -48,6 +48,13 @@ router.post(
             });
         }
 
+        // Konversi scheduled_at ke format Date sebelum menyimpan
+        if (body.scheduled_at) {
+            const [month, day, year] = body.scheduled_at.split('/');
+            body.scheduled_at = new Date(`${year}-${month}-${day}T00:00:00Z`); // Format ISO
+        }
+
+
         // Tambahkan user_id dari pengguna yang terautentikasi
         body.user_id = req.user._id;
 
@@ -62,32 +69,54 @@ router.post(
     })
 );
 
-// Get content with date filter
+
 router.get(
     '/',
     isAuthenticated,
     catchAsyncErrors(async (req, res, next) => {
-        let { start_date, end_date } = req.query;
-        let filter = { user_id: req.user._id };
+        try {
+            let { start_date, end_date } = req.query;
+            let filter = { user_id: req.user._id };
 
-        if (start_date && end_date) {
-            filter.createdAt = {
-                $gte: new Date(start_date),
-                $lte: new Date(end_date),
-            };
+            console.log("User ID:", req.user._id); // Debugging user ID
+            console.log("Raw Query Params:", req.query); // Debugging raw input
+
+            if (start_date && end_date) {
+                // Pastikan format tanggal valid sebelum memprosesnya
+                const startDateObj = new Date(start_date);
+                const endDateObj = new Date(end_date);
+
+                if (!isNaN(startDateObj) && !isNaN(endDateObj)) {
+                    filter.createdAt = {
+                        $gte: startDateObj,
+                        $lte: endDateObj,
+                    };
+                } else {
+                    console.log("Invalid Date Format:", start_date, end_date);
+                }
+            }
+
+            console.log("Final Filter:", filter); // Debugging filter sebelum query
+
+            const contents = await Content.find(filter)
+                .populate('user_id', 'username email')
+                .sort({ createdAt: -1 });
+
+            console.log("Query Result Count:", contents.length); // Debugging jumlah hasil
+
+            res.status(200).json({
+                code: 200,
+                status: 'success',
+                data: contents,
+            });
+        } catch (error) {
+            console.error("Error fetching contents:", error);
+            res.status(500).json({ code: 500, status: 'error', message: error.message });
         }
-
-        const contents = await Content.find(filter)
-            .populate('user_id', 'username email')
-            .sort({ createdAt: -1 });
-
-        res.status(200).json({
-            code: 200,
-            status: 'success',
-            data: contents,
-        });
     })
 );
+
+
 
 // Export content to Excel
 router.get(
@@ -211,6 +240,13 @@ router.put(
                 },
             });
         }
+
+        // Konversi scheduled_at ke format Date sebelum menyimpan
+        if (body.scheduled_at) {
+            const [month, day, year] = body.scheduled_at.split('/');
+            body.scheduled_at = new Date(`${year}-${month}-${day}T00:00:00Z`); // Format ISO
+        }
+
 
         // Cari dan perbarui konten
         const content = await Content.findOneAndUpdate(
