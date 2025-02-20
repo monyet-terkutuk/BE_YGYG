@@ -76,7 +76,7 @@ router.get(
     catchAsyncErrors(async (req, res, next) => {
         try {
             let { start_date, end_date } = req.query;
-            let filter = { user_id: req.user._id };
+            let filter;
 
             console.log("User ID:", req.user._id); // Debugging user ID
             console.log("Raw Query Params:", req.query); // Debugging raw input
@@ -124,7 +124,7 @@ router.get(
     isAuthenticated,
     catchAsyncErrors(async (req, res, next) => {
         let { start_date, end_date } = req.query;
-        let filter = { user_id: req.user._id };
+        let filter;
 
         if (start_date && end_date) {
             filter.createdAt = {
