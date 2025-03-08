@@ -247,7 +247,7 @@ router.get(
     '/:id',
     isAuthenticated,
     catchAsyncErrors(async (req, res, next) => {
-        const content = await Content.findOne({ _id: req.params.id, user_id: req.user._id })
+        const content = await Content.findOne({ _id: req.params.id })
             .populate('user_id', 'username email');
 
         if (!content) {
@@ -296,7 +296,7 @@ router.put(
 
         // Cari dan perbarui konten
         const content = await Content.findOneAndUpdate(
-            { _id: req.params.id, user_id: req.user._id },
+            { _id: req.params.id },
             body,
             { new: true, runValidators: true }
         );
@@ -322,7 +322,7 @@ router.delete(
     '/:id',
     isAuthenticated,
     catchAsyncErrors(async (req, res, next) => {
-        const content = await Content.findOneAndDelete({ _id: req.params.id, user_id: req.user._id });
+        const content = await Content.findOneAndDelete({ _id: req.params.id });
         if (!content) {
             return res.status(404).json({
                 code: 404,
